@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 from pathlib import Path
 
 import streamlit as st
@@ -53,7 +54,8 @@ OUTPUT_FORMAT_TEMPLATE = (
 st.set_page_config(
     page_title="PageIndex RAG — Vectorless Document Q&A",
     page_icon="📑",
-    layout="wide",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
 # Light-green theme. Every color below is picked for contrast against its
@@ -227,9 +229,98 @@ summary { color: var(--text-primary) !important; }
     padding: 8px 12px;
     font-size: 0.85rem;
 }
+
+.workspace-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--bg-surface-strong);
+    color: var(--accent-dark);
+    font-size: 0.75rem;
+    border: 1px solid var(--border-soft);
+    font-family: monospace;
+}
+
+/* ---------------------------------------------------------------------
+   Phone / touch-oriented tweaks (apply on every viewport, sized so they
+   help small screens without hurting desktop):
+   - Bigger tap targets (44px is the standard minimum touch size).
+   - 16px input font so iOS Safari doesn't auto-zoom on focus.
+   - Trim outer padding so content isn't squeezed on narrow screens.
+   - Let multi-column rows (metrics, saved-doc rows) wrap into a grid
+     instead of squashing horizontally when the viewport is narrow.
+   ------------------------------------------------------------------- */
+.stButton button, .stDownloadButton button {
+    min-height: 44px;
+    font-size: 0.95rem;
+    border-radius: 10px;
+}
+.stTextInput input, .stTextArea textarea {
+    font-size: 16px !important;
+    min-height: 44px;
+}
+[data-testid="stChatInput"] textarea {
+    font-size: 16px !important;
+}
+section[data-testid="stFileUploaderDropzone"] button {
+    min-height: 44px;
+}
+
+@media (max-width: 640px) {
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 1.5rem !important;
+    }
+    h1 { font-size: 1.5rem !important; }
+    h2, h3 { font-size: 1.15rem !important; }
+    .stCaption, [data-testid="stCaptionContainer"] {
+        font-size: 0.8rem !important;
+    }
+    /* Let any row of columns wrap into a 2-up grid instead of
+       cramming everything into one too-narrow row. */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        min-width: 47% !important;
+        flex: 1 1 47% !important;
+    }
+    [data-testid="stMetric"] {
+        padding: 8px 10px;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+}
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# Per-user workspace id
+# ---------------------------------------------------------------------------
+# There's no login system here, so each browser gets its own private
+# workspace id instead. It's stored in the page URL (?u=...) so it
+# survives refreshes/reopens on the same device, and a user can copy
+# that id into another device/browser to see the same documents there.
+# The two permanent sample documents are the one exception -- they live
+# in a shared folder (see storage.py) and are shown to every workspace.
+def _get_or_create_user_id() -> str:
+    existing = st.query_params.get("u")
+    if existing:
+        return existing
+    new_id = uuid.uuid4().hex[:12]
+    st.query_params["u"] = new_id
+    return new_id
+
+
+if "user_id" not in st.session_state:
+    st.session_state.user_id = _get_or_create_user_id()
+
+USER_ID = st.session_state.user_id
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +345,28 @@ if "key_confirmed" not in st.session_state:
 with st.sidebar:
     st.markdown("## 📑 PageIndex RAG")
     st.caption("Vectorless, reasoning-based document Q&A — powered by Mistral AI")
+
+    st.divider()
+    st.markdown("### 👤 Your workspace")
+    st.markdown(
+        f"<span class='workspace-pill'>{USER_ID}</span>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Your uploads are private to this workspace id. The link in your "
+        "browser's address bar now includes it, so reopening that link "
+        "(even on another device) brings your documents back."
+    )
+    with st.expander("🔁 Use a different workspace id"):
+        manual_id = st.text_input(
+            "Paste a workspace id to switch to it", key="manual_workspace_id"
+        )
+        if st.button("Switch", use_container_width=True) and manual_id.strip():
+            st.query_params["u"] = manual_id.strip()
+            st.session_state.user_id = manual_id.strip()
+            st.session_state.active_doc = None
+            st.session_state.chat_history = []
+            st.rerun()
 
     st.divider()
     st.markdown("### 🔑 Mistral API Key")
@@ -289,7 +402,7 @@ with st.sidebar:
 
     st.divider()
     st.markdown("### 📚 Saved documents")
-    saved = storage.list_indexes()
+    saved = storage.list_indexes(user_id=USER_ID)
     if not saved:
         st.caption("No documents indexed yet.")
     else:
@@ -305,7 +418,7 @@ with st.sidebar:
                 cols[1].button("🔒", key=f"del_{label}", disabled=True,
                                 help="Permanent sample document — cannot be deleted")
             elif cols[1].button("🗑️", key=f"del_{label}"):
-                storage.delete_index(label)
+                storage.delete_index(label, user_id=USER_ID)
                 if st.session_state.active_doc == label:
                     st.session_state.active_doc = None
                 st.rerun()
@@ -327,7 +440,7 @@ with st.sidebar:
                 if f.is_file():
                     f.unlink()
             # Remove every saved index except the permanent samples.
-            storage.clear_all_indexes(keep_samples=True)
+            storage.clear_all_indexes(user_id=USER_ID, keep_samples=True)
             if st.session_state.active_doc not in storage.SAMPLE_DOC_NAMES:
                 st.session_state.active_doc = None
             st.session_state.chat_history = []
@@ -347,6 +460,14 @@ def build_index_for_upload(file) -> None:
     ext = Path(file.name).suffix.lower()
     if ext not in config.ALL_SUPPORTED_EXTENSIONS:
         st.error(f"Unsupported file type: {ext}")
+        return
+
+    if file.name in storage.SAMPLE_DOC_NAMES:
+        st.error(
+            f"'{file.name}' is a reserved sample document name — please "
+            "rename the file and try again.",
+            icon="❌",
+        )
         return
 
     # Quick upfront size check using the in-memory upload before writing
@@ -394,6 +515,7 @@ def build_index_for_upload(file) -> None:
                 "build_time_sec": round(build_time, 2),
                 "num_nodes": pageindex_builder.count_nodes(root),
             },
+            user_id=USER_ID,
         )
         progress.progress(100, text="Done!")
         time.sleep(0.4)
@@ -451,7 +573,7 @@ if not active_doc:
     )
     st.stop()
 
-doc_payload = storage.load_index(active_doc)
+doc_payload = storage.load_index(active_doc, user_id=USER_ID)
 if not doc_payload:
     st.error("Could not load the selected document's index.")
     st.stop()
@@ -460,14 +582,13 @@ root = doc_payload["tree"]
 meta = doc_payload.get("meta", {})
 
 # --- Document overview row -------------------------------------------------
-top_cols = st.columns([3, 1, 1, 1])
-with top_cols[0]:
-    st.markdown(f"### 📄 {active_doc}")
-with top_cols[1]:
+st.markdown(f"### 📄 {active_doc}")
+metric_cols = st.columns(3)
+with metric_cols[0]:
     st.metric("Pages", meta.get("num_pages", "—"))
-with top_cols[2]:
+with metric_cols[1]:
     st.metric("Index nodes", meta.get("num_nodes", "—"))
-with top_cols[3]:
+with metric_cols[2]:
     st.metric("Build time", f"{meta.get('build_time_sec', '—')}s")
 
 tab_chat, tab_tree = st.tabs(["💬 Ask questions", "🌳 Index tree"])
