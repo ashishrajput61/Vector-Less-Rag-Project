@@ -276,8 +276,8 @@ This project is licensed under the MIT License.
 
 **Ashish Rajput**
 
-* GitHub: https://github.com/your-github-username
-* LinkedIn: https://linkedin.com/in/your-profile
+* GitHub: https://github.com/ashishrajput61/
+* LinkedIn: https://www.linkedin.com/in/ashish-r-7a5529268/
 
 ---
 
