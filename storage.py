@@ -16,7 +16,7 @@ config.INDEX_DIR/
         <safe_user_id>/       <- private to that user
             <doc-name>.json
 
-Every doc-modifying function now takes a `user_id` so that one user's
+Every doc-modifying function takes a `user_id` so that one user's
 uploaded documents are never visible to, or deletable by, another user.
 The permanent sample documents are the one exception: they live in the
 shared `samples/` folder and are surfaced to *every* user by
@@ -42,7 +42,7 @@ SAMPLE_DOC_NAMES = {
 }
 
 # Fallback used only if a caller forgets to pass a user_id. Real callers
-# should always pass the actual logged-in/session user id.
+# (app.py) always pass the actual per-browser/session workspace id.
 DEFAULT_USER_ID = "default"
 
 
@@ -67,9 +67,9 @@ def index_path(doc_name: str, user_id: str = DEFAULT_USER_ID) -> Path:
     """
     Resolve the on-disk path for a document.
 
-    Sample documents always resolve to the shared samples/ folder
-    (same file for every user). Everything else resolves to the
-    given user's private folder.
+    Sample documents always resolve to the shared samples/ folder (same
+    file for every user). Everything else resolves to the given user's
+    private folder.
     """
     base = _samples_dir() if doc_name in SAMPLE_DOC_NAMES else _user_dir(user_id)
     return base / f"{_safe_name(doc_name)}.json"
@@ -151,10 +151,10 @@ def clear_all_indexes(user_id: str = DEFAULT_USER_ID, keep_samples: bool = True)
     """
     Delete all of THIS USER's saved index JSON files. Sample documents
     live in the shared folder and are never touched by this function
-    regardless of keep_samples -- a per-user "clear all" must not be
+    regardless of keep_samples -- a per-user "clear all" must never be
     able to wipe data other users depend on. The keep_samples flag is
-    kept for API compatibility / explicitness but a normal per-user
-    clear can never reach the shared samples folder.
+    kept for API compatibility/explicitness, but a normal per-user clear
+    can't reach the shared samples folder either way.
     Returns the number of index files deleted.
     """
     deleted = 0
