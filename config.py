@@ -16,17 +16,17 @@ MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 
 # Model used to build the hierarchical tree index (needs strong reasoning +
 # large context to look at whole documents / large chunks at once).
-TREE_BUILDER_MODEL = os.getenv("TREE_BUILDER_MODEL", "mistral-large-latest")
+TREE_BUILDER_MODEL = os.getenv("TREE_BUILDER_MODEL", "mistral-small-latest")
 
 # Model used at query time to *reason* over the tree and pick nodes
 # (this is the "vectorless retrieval" step — no embeddings involved).
-RETRIEVER_MODEL = os.getenv("RETRIEVER_MODEL", "mistral-large-latest")
+RETRIEVER_MODEL = os.getenv("RETRIEVER_MODEL", "mistral-small-latest")
 
 # Model used for the final answer-generation step.
-ANSWER_MODEL = os.getenv("ANSWER_MODEL", "mistral-large-latest")
+ANSWER_MODEL = os.getenv("ANSWER_MODEL", "mistral-small-latest")
 
 # Model used for OCR / image understanding (Mistral's vision-capable model).
-VISION_MODEL = os.getenv("VISION_MODEL", "pixtral-large-latest")
+VISION_MODEL = os.getenv("VISION_MODEL", "pixtral-small-latest")
 
 # Mistral's dedicated document/image OCR endpoint model name.
 OCR_MODEL = os.getenv("OCR_MODEL", "mistral-ocr-latest")
