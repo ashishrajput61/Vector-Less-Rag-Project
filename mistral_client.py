@@ -101,11 +101,25 @@ def _single_page_part(path, idx):
     writer.write(buf)
     return types.Part.from_bytes(data=buf.getvalue(), mime_type="application/pdf")
 
-def ocr_pdf_pages(file_path, page_indices_0based):
-    def one(idx):
-        try:
-            return idx, _generate([_single_page_part(file_path, idx), _OCR_PROMPT], temperature=0.0)
-        except Exception as e:
-            return idx, f"[OCR failed for this page: {e}]"
-    with ThreadPoolExecutor(max_workers=config.MAX_PARALLEL_OCR_WORKERS) as ex:
-        return dict(ex.map(one, page_indices_0based))
+def ocr_pdf_pages(file_path, page_indices_0based, chunk=10):
+    reader = PdfReader(file_path)
+    idxs = list(page_indices_0based)
+
+    def run(group):
+        writer = PdfWriter()
+        for i in group:
+            writer.add_page(reader.pages[i])
+        buf = io.BytesIO()
+        writer.write(buf)
+        part = types.Part.from_bytes(data=buf.getvalue(), mime_type="application/pdf")
+        text = _generate([part, _OCR_PROMPT + " Put the line ===PAGE=== between pages."],
+                         temperature=0.0)
+        pieces = text.split("===PAGE===")
+        return {i: (pieces[k].strip() if k < len(pieces) else "") for k, i in enumerate(group)}
+
+    groups = [idxs[i:i + chunk] for i in range(0, len(idxs), chunk)]
+    result = {}
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        for d in ex.map(run, groups):
+            result.update(d)
+    return result
