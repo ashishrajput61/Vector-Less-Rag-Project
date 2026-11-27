@@ -42,7 +42,7 @@ PAGE_CHAR_SIZE = 3500
 
 # Max number of leaf-page-units grouped together in one LLM call while
 # generating ToC structure, to keep prompts within context limits.
-MAX_PAGES_PER_TOC_BATCH = 30
+MAX_PAGES_PER_TOC_BATCH = 20
 
 # Max depth of the generated section tree.
 MAX_TREE_DEPTH = 4
@@ -59,11 +59,11 @@ MAX_SEARCH_HOPS = 4
 # large documents. Each batch is an independent LLM call, so they can run
 # concurrently instead of one-by-one — this is what makes big documents
 # (hundreds of pages) index in a fraction of the time.
-MAX_PARALLEL_TOC_WORKERS = int(os.getenv("MAX_PARALLEL_TOC_WORKERS", "8"))
+MAX_PARALLEL_TOC_WORKERS = int(os.getenv("MAX_PARALLEL_TOC_WORKERS", "3"))
 
 # Number of pages OCR'd concurrently for scanned PDFs / large image-heavy
 # documents, for the same reason as above.
-MAX_PARALLEL_OCR_WORKERS = int(os.getenv("MAX_PARALLEL_OCR_WORKERS", "5"))
+MAX_PARALLEL_OCR_WORKERS = int(os.getenv("MAX_PARALLEL_OCR_WORKERS", "2"))
 
 # ---------------------------------------------------------------------------
 # Document size limits
