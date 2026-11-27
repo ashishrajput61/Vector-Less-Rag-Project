@@ -4,6 +4,8 @@ from google import genai
 from google.genai import types
 import config
 
+class MistralNotConfigured(Exception):
+    """Raised when no API key is available."""
 _client = None
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # copy a current Flash model name from AI Studio
 
