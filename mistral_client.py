@@ -40,15 +40,23 @@ def _retry(fn, *a, retries=5, delay=3.0, **kw):
                 raise
             time.sleep(delay * (2 ** i))
 
+FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "")
+
 def _generate(contents, system=None, temperature=0.2, json_mode=False, max_tokens=None, model=None):
     cfg = types.GenerateContentConfig(
         system_instruction=system, temperature=temperature,
         response_mime_type="application/json" if json_mode else None,
         max_output_tokens=max_tokens,
     )
-    r = _retry(get_client().models.generate_content,
-               model=model or GEMINI_MODEL, contents=contents, config=cfg)
-    return r.text or ""
+    def call(m):
+        return _retry(get_client().models.generate_content,
+                      model=m, contents=contents, config=cfg).text or ""
+    try:
+        return call(model or GEMINI_MODEL)
+    except Exception as e:
+        if FALLBACK_MODEL and any(c in str(e) for c in ("503", "UNAVAILABLE")):
+            return call(FALLBACK_MODEL)
+        raise
 
 def chat(prompt, system=None, model=None, temperature=0.2, json_mode=False, max_tokens=None):
     return _generate(prompt, system, temperature, json_mode, max_tokens)
