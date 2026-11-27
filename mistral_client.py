@@ -35,6 +35,8 @@ def _retry(fn, *a, retries=5, delay=3.0, **kw):
             return fn(*a, **kw)
         except Exception as e:
             msg = str(e)
+            if "PerDay" in msg or "per day" in msg:
+    raise
             temporary = any(c in msg for c in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "500"))
             if not temporary or i == retries - 1:
                 raise
@@ -54,7 +56,7 @@ def _generate(contents, system=None, temperature=0.2, json_mode=False, max_token
     try:
         return call(model or GEMINI_MODEL)
     except Exception as e:
-        if FALLBACK_MODEL and any(c in str(e) for c in ("503", "UNAVAILABLE")):
+        if FALLBACK_MODEL and any(c in str(e) for c in ("503", "UNAVAILABLE", "429", "RESOURCE_EXHAUSTED")):
             return call(FALLBACK_MODEL)
         raise
 
