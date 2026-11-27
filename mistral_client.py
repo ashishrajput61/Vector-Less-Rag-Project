@@ -3,6 +3,9 @@ from typing import Optional
 from google import genai
 from google.genai import types
 import config
+import io
+from concurrent.futures import ThreadPoolExecutor
+from pypdf import PdfReader, PdfWriter
 
 class MistralNotConfigured(Exception):
     """Raised when no API key is available."""
@@ -77,12 +80,23 @@ def ocr_document(file_path, is_image, page_indices=None):
     if page_indices is not None and not is_image:
         prompt += f" Only process these 1-based pages: {[i + 1 for i in page_indices]}."
     return _generate([_file_part(file_path), prompt], temperature=0.0)
+import io
+from concurrent.futures import ThreadPoolExecutor
+from pypdf import PdfReader, PdfWriter
+
+def _single_page_part(path, idx):
+    reader = PdfReader(path)
+    writer = PdfWriter()
+    writer.add_page(reader.pages[idx])
+    buf = io.BytesIO()
+    writer.write(buf)
+    return types.Part.from_bytes(data=buf.getvalue(), mime_type="application/pdf")
 
 def ocr_pdf_pages(file_path, page_indices_0based):
-    out = {}
-    for idx in page_indices_0based:
+    def one(idx):
         try:
-            out[idx] = ocr_document(file_path, False, [idx])
+            return idx, _generate([_single_page_part(file_path, idx), _OCR_PROMPT], temperature=0.0)
         except Exception as e:
-            out[idx] = f"[OCR failed for this page: {e}]"
-    return out
+            return idx, f"[OCR failed for this page: {e}]"
+    with ThreadPoolExecutor(max_workers=config.MAX_PARALLEL_OCR_WORKERS) as ex:
+        return dict(ex.map(one, page_indices_0based))
