@@ -29,15 +29,16 @@ def reset_client(api_key: str) -> None:
     os.environ["GEMINI_API_KEY"] = api_key
     _client = genai.Client(api_key=api_key) if api_key else None
 
-def _retry(fn, *a, retries=3, delay=2.0, **kw):
+def _retry(fn, *a, retries=5, delay=3.0, **kw):
     for i in range(retries):
         try:
             return fn(*a, **kw)
         except Exception as e:
-            # don't retry auth/billing/quota-type failures
-            if any(c in str(e) for c in ("401", "402", "403")) or i == retries - 1:
+            msg = str(e)
+            temporary = any(c in msg for c in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "500"))
+            if not temporary or i == retries - 1:
                 raise
-            time.sleep(delay * (i + 1))
+            time.sleep(delay * (2 ** i))
 
 def _generate(contents, system=None, temperature=0.2, json_mode=False, max_tokens=None, model=None):
     cfg = types.GenerateContentConfig(
