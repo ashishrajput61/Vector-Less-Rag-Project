@@ -14,7 +14,10 @@ def get_client():
     if _client is None:
         key = os.getenv("GEMINI_API_KEY", "")
         if not key:
-            raise RuntimeError("GEMINI_API_KEY is not set")
+            raise MistralNotConfigured(
+                "GEMINI_API_KEY is not set. Add it to Streamlit secrets "
+                "or enter it in the sidebar."
+            )
         _client = genai.Client(api_key=key)
     return _client
 
