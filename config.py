@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # use a current Flash model name from AI Studio
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")  # use a current Flash model name from AI Studio
 
 # Kept under the old names so other files that still reference them don't break.
 MISTRAL_API_KEY = GEMINI_API_KEY
