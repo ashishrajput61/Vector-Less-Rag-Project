@@ -7,7 +7,7 @@ import config
 class MistralNotConfigured(Exception):
     """Raised when no API key is available."""
 _client = None
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # copy a current Flash model name from AI Studio
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")  # copy a current Flash model name from AI Studio
 
 def get_client():
     global _client
